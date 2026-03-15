@@ -4,8 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>מגלה פלינדרומים / תיבות ארוכות / ספירת אות / חפיפת מילים</title>
-<a href="https://mechon-mamre.org/i/t/t0.htm" target="_blank">תנ"ך</a> 	
+
+  <a href="https://mechon-mamre.org/i/t/t0.htm" target="_blank">תנ"ך</a>
+
+  <script>
+    tailwind.config = {};
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=Frank+Ruhl+Libre:wght@700&display=swap" rel="stylesheet">
 
   <script type="importmap">
@@ -40,31 +46,26 @@
     function cleanForComparison(text) {
       return (text || '')
         .replace(/ך/g, 'כ').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ')
-        .replace(/[\u0591-\u05C7]/g, '')          // ניקוד/טעמים
-        .replace(/[^\u05D0-\u05EA]/g, '');        // רק אותיות עבריות
+        .replace(/[\u0591-\u05C7]/g, '')
+        .replace(/[^\u05D0-\u05EA]/g, '');
     }
 
-    // ✅ מוחק כל סימון מסורה בצורה {X} כולל {ס}{ר}{פ}{ש} ועוד
     function stripMasoraMarkers(s) {
       return String(s || '').replace(/\{[^}]*\}/g, ' ');
     }
 
-    // ✅ מסיר "טו,ח" / "יד,יד" מהטקסט לחישוב
     function stripVerseRefs(s) {
       return String(s || '')
         .replace(/^\s*[א-ת]{1,4},[א-ת]{1,3}\s+/g, '')
         .replace(/\s+[א-ת]{1,4},[א-ת]{1,3}\s+/g, ' ');
     }
 
-    // ✅ לא לפצל פסוקים בגלל Enter בתוך פסוק
     function splitIntoVerses(rawText) {
       const t0 = String(rawText || '')
         .replace(/\r/g, '')
         .replace(/\n+/g, ' ');
 
       const t1 = stripMasoraMarkers(t0);
-
-      // שורה חדשה רק לפני "טו,ז" "טו,ח" וכו'
       const t2 = t1.replace(/(\s|^)([א-ת]{1,4},[א-ת]{1,3})(?=\s)/g, '\n$2 ');
 
       return t2
@@ -98,6 +99,11 @@
 
     const finalMap = { 'כ': 'ך', 'מ': 'ם', 'נ': 'ן', 'פ': 'ף', 'צ': 'ץ' };
 
+    const HEBREW_ALPHABET = [
+      'א','ב','ג','ד','ה','ו','ז','ח','ט','י',
+      'כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'
+    ];
+
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -124,7 +130,9 @@
       return 0;
     }
 
-    function yieldToUI() { return new Promise(r => setTimeout(r, 0)); }
+    function yieldToUI() {
+      return new Promise(r => setTimeout(r, 0));
+    }
 
     // ---------- App ----------
     function App() {
@@ -133,7 +141,8 @@
 
       const [mode, setMode] = React.useState('pal'); // pal | long | letterCount | overlap
       const [favorites, setFavorites] = React.useState(() => {
-        try { return JSON.parse(localStorage.getItem('pal_favs') || '[]'); } catch { return []; }
+        try { return JSON.parse(localStorage.getItem('pal_favs') || '[]'); }
+        catch { return []; }
       });
 
       const [apiKey, setApiKey] = React.useState(localStorage.getItem('gemini_key') || '');
@@ -168,7 +177,11 @@
 
       const toggleFavorite = (item) => {
         const isFav = favorites.some(f => f.text === item.text && f.kind === item.kind);
-        setFavorites(isFav ? favorites.filter(f => !(f.text === item.text && f.kind === item.kind)) : [...favorites, item]);
+        setFavorites(
+          isFav
+            ? favorites.filter(f => !(f.text === item.text && f.kind === item.kind))
+            : [...favorites, item]
+        );
       };
 
       const exportCsv = () => {
@@ -179,8 +192,12 @@
               f.kind === 'pal' ? 'פלינדרום' :
               (f.kind === 'long' ? 'תיבה ארוכה' :
               (f.kind === 'letterCount' ? 'ספירת אות' : 'חפיפת מילים'));
+
             const metricLabel =
-              f.kind === 'letterCount' ? `${(f.meta?.displayLetter ?? '')}×${f.length}` : String(f.length);
+              f.kind === 'letterCount'
+                ? `${(f.meta?.displayLetter ?? '')}×${f.length}`
+                : String(f.length);
+
             const details = f.meta?.details || '';
             const safe = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
             return [kindLabel, f.text, metricLabel, f.location, f.sourceText, details].map(safe).join(',');
@@ -194,11 +211,16 @@
       };
 
       const identifySource = async (itemIndexInResults) => {
-        if (!apiKey) { alert('אנא הזן מפתח API'); return; }
+        if (!apiKey) {
+          alert('אנא הזן מפתח API');
+          return;
+        }
+
         const item = results[itemIndexInResults];
         if (!item) return;
 
         setLoadingId(item.id);
+
         try {
           const base =
             item.kind === 'pal'
@@ -216,27 +238,113 @@
 
           const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            }
           );
 
           const data = await response.json();
           const location = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          setResults(prev => prev.map(r => r.id === item.id ? { ...r, location: location || 'לא נמצא' } : r));
+
+          setResults(prev =>
+            prev.map(r => r.id === item.id ? { ...r, location: location || 'לא נמצא' } : r)
+          );
         } catch {
-          setResults(prev => prev.map(r => r.id === item.id ? { ...r, location: 'לא נמצא' } : r));
+          setResults(prev =>
+            prev.map(r => r.id === item.id ? { ...r, location: 'לא נמצא' } : r)
+          );
         } finally {
           setLoadingId(null);
         }
       };
 
-      // ✅ מבנה פסוק: תצוגה נקייה + טקסט לחישוב (גם בלי "טו,ח")
       function getVerseForms(v) {
         const verseRaw = String(v || '').trim();
         const verseDisplay = stripMasoraMarkers(verseRaw).replace(/\s+/g, ' ').trim();
         const verseScan = stripVerseRefs(verseDisplay).replace(/\s+/g, ' ').trim();
         return { verseRaw, verseDisplay, verseScan };
       }
+
+      const handleAnalyzeAlphabet = async () => {
+        const verses = splitIntoVerses(inputText || '');
+
+        setIsSearching(true);
+        setProgressPct(0);
+        setProgressText('רץ על כל האלפבית…');
+
+        await yieldToUI();
+
+        try {
+          if (!verses.length) {
+            setResults([]);
+            return;
+          }
+
+          const found = [];
+          const totalSteps = verses.length * HEBREW_ALPHABET.length;
+          let step = 0;
+
+          for (const letterDisplay of HEBREW_ALPHABET) {
+            const letter = normalizeHebrewLetter(letterDisplay);
+            const seen = new Set();
+
+            for (let vi = 0; vi < verses.length; vi++) {
+              const { verseDisplay, verseScan } = getVerseForms(verses[vi]);
+              const cnt = countLetterInText(verseScan, letter);
+
+              const ok =
+                countMode === 'none'    ? (cnt === 0) :
+                countMode === 'exact'   ? (cnt === targetCount) :
+                countMode === 'atLeast' ? (cnt >= targetCount) :
+                                         (cnt <= targetCount);
+
+              if (ok) {
+                const key = `${letter}|${cleanForComparison(verseScan)}`;
+                if (!seen.has(key)) {
+                  seen.add(key);
+
+                  const label = (countMode === 'none')
+                    ? `אין "${letterDisplay}"`
+                    : `${letterDisplay} × ${cnt}`;
+
+                  found.push({
+                    kind: 'letterCount',
+                    text: label,
+                    sourceText: verseDisplay,
+                    location: 'לחץ לזיהוי מקור',
+                    length: cnt,
+                    wordCount: 1,
+                    meta: {
+                      letter,
+                      displayLetter: letterDisplay,
+                      crossVerse: false,
+                      details: `אות: ${letterDisplay}`
+                    },
+                    id: Math.random()
+                  });
+                }
+              }
+
+              step++;
+              setProgressPct(Math.round((step / totalSteps) * 100));
+              if ((step % 40) === 0) await yieldToUI();
+            }
+          }
+
+          found.sort((a, b) =>
+            (b.length | 0) - (a.length | 0) ||
+            String(a.meta?.displayLetter || '').localeCompare(String(b.meta?.displayLetter || ''), 'he')
+          );
+
+          setResults(found);
+        } finally {
+          setProgressPct(100);
+          setIsSearching(false);
+          setProgressText('');
+        }
+      };
 
       const handleAnalyze = async () => {
         const verses = splitIntoVerses(inputText || '');
@@ -253,7 +361,10 @@
         await yieldToUI();
 
         try {
-          if (!verses.length) { setResults([]); return; }
+          if (!verses.length) {
+            setResults([]);
+            return;
+          }
 
           // ---------- PAL ----------
           if (mode === 'pal') {
@@ -270,13 +381,16 @@
                 for (let i = 0; i <= textToScan.length - len; i++) {
                   const sub = textToScan.substring(i, i + len);
                   if (!isPalindrome(sub)) continue;
+
                   if (mustCross) {
                     const start = i, end = i + len;
                     if (!(start < boundaryIndex && end > boundaryIndex)) continue;
                   }
+
                   const cleanSub = sub.trim();
                   const compareKey = cleanForComparison(cleanSub);
                   if (!compareKey || seen.has(compareKey)) continue;
+
                   seen.add(compareKey);
                   found.push({
                     kind: 'pal',
@@ -333,7 +447,7 @@
               const { verseDisplay, verseScan } = getVerseForms(verses[vi]);
               const wordsOrig = extractWords(verseScan.replace(/[-–—]/g, ' '));
 
-              for (const w of wordsOrig) { // ✅ היה אצלך "words" וזה שגוי
+              for (const w of wordsOrig) {
                 const clean = cleanForComparison(w);
                 if (clean.length >= longMinLength && !seen.has(clean)) {
                   seen.add(clean);
@@ -361,7 +475,10 @@
           // ---------- LETTER COUNT ----------
           if (mode === 'letterCount') {
             const letter = normalizeHebrewLetter(letterToCount);
-            if (!letter) { setResults([]); return; }
+            if (!letter) {
+              setResults([]);
+              return;
+            }
 
             const found = [];
             const seen = new Set();
@@ -392,7 +509,11 @@
                     sourceText: verseDisplay,
                     location: 'לחץ לזיהוי מקור',
                     length: cnt,
-                    meta: { letter, displayLetter: letterToCount, crossVerse: false },
+                    meta: {
+                      letter,
+                      displayLetter: letterToCount,
+                      crossVerse: false
+                    },
                     id: Math.random()
                   });
                 }
@@ -416,11 +537,10 @@
 
             for (let vi = 0; vi < total; vi++) {
               const { verseDisplay, verseScan } = getVerseForms(verses[vi]);
-
-              // ✅ מקפים יהפכו לרווח כדי שהמילים יתפצלו נכון
               const wordsOrig = extractWords(verseScan.replace(/[-–—]/g, ' '));
-
-              const words = wordsOrig.map(w => ({ orig: w, norm: cleanForComparison(w) })).filter(w => w.norm);
+              const words = wordsOrig
+                .map(w => ({ orig: w, norm: cleanForComparison(w) }))
+                .filter(w => w.norm);
 
               if (words.length >= 2) {
                 if (overlapView === 'pairs') {
@@ -439,9 +559,9 @@
                       text: `${a.orig} → ${b.orig}`,
                       sourceText: verseDisplay,
                       location: 'לחץ לזיהוי מקור',
-                      length: k,           // K
-                      wordCount: 2,        // ✅ מספר מילים חופפות
-                      _ord: (vi * 100000) + i, // ✅ סדר הופעה
+                      length: k,
+                      wordCount: 2,
+                      _ord: (vi * 100000) + i,
                       meta: { details: `חפיפה: "${overlap}" (${k})` },
                       id: Math.random()
                     });
@@ -466,10 +586,12 @@
                       text: chainWords.join(' → '),
                       sourceText: verseDisplay,
                       location: 'לחץ לזיהוי מקור',
-                      length: maxOverlapInChain || minK,     // ✅ מיון לפי מקסימום K
-                      wordCount: chainWords.length,          // ✅ מספר מילים בשרשרת
-                      _ord: (vi * 100000) + chainStart,      // ✅ סדר הופעה
-                      meta: { details: `שרשרת: ${chainWords.length} מילים • חפיפה מקסימלית: ${maxOverlapInChain || minK} • מינימלית: ${minOverlapInChain || minK}` },
+                      length: maxOverlapInChain || minK,
+                      wordCount: chainWords.length,
+                      _ord: (vi * 100000) + chainStart,
+                      meta: {
+                        details: `שרשרת: ${chainWords.length} מילים • חפיפה מקסימלית: ${maxOverlapInChain || minK} • מינימלית: ${minOverlapInChain || minK}`
+                      },
                       id: Math.random()
                     });
                   };
@@ -478,13 +600,15 @@
                     const a = words[i], b = words[i + 1];
                     const k = maxOverlapSuffixPrefix(a.norm, b.norm);
 
-                    if (k >= minK) currentOverlaps.push(k);
-                    else {
+                    if (k >= minK) {
+                      currentOverlaps.push(k);
+                    } else {
                       flushChain(i + 1);
                       chainStart = i + 1;
                       currentOverlaps = [];
                     }
                   }
+
                   flushChain(words.length);
                 }
               }
@@ -493,20 +617,18 @@
               if ((vi % 12) === 11) await yieldToUI();
             }
 
-            // ✅ מיון: K יורד → wordCount יורד → סדר הופעה עולה
-			found.sort((a, b) =>
-			  (b.wordCount|0) - (a.wordCount|0) ||   // ✅ קודם: שרשרת גדולה יותר
-			  (b.length|0) - (a.length|0) ||         // ✅ אחר כך: חפיפה (K) גדולה יותר
-			  (a._ord|0) - (b._ord|0)                // ✅ שובר שוויון: סדר הופעה בטקסט
-			);
-
+            // קודם שרשרת גדולה יותר, אחר כך K גדול יותר
+            found.sort((a, b) =>
+              (b.wordCount | 0) - (a.wordCount | 0) ||
+              (b.length | 0) - (a.length | 0) ||
+              (a._ord | 0) - (b._ord | 0)
+            );
 
             setResults(found);
             return;
           }
 
           setResults([]);
-
         } finally {
           setProgressPct(100);
           setIsSearching(false);
@@ -515,7 +637,9 @@
       };
 
       // ---------- UI bits ----------
-      const filteredResults = (mode === 'pal') ? results.filter(r => r.length >= minLength) : results;
+      const filteredResults = (mode === 'pal')
+        ? results.filter(r => r.length >= minLength)
+        : results;
 
       const ModeButton = ({ value, icon, label }) => {
         const active = mode === value;
@@ -552,11 +676,16 @@
         : 'מצא פסוקים לפי ספירת אות';
 
       const metricLabelForCard = (res) => {
-        if (res.kind === 'letterCount') return `${res.length} מופעים`;
+        if (res.kind === 'letterCount') {
+          const letterLabel = res.meta?.displayLetter ? ` • אות: ${res.meta.displayLetter}` : '';
+          return `${res.length} מופעים${letterLabel}`;
+        }
+
         if (res.kind === 'overlap') {
           const wc = res.wordCount || (res.text?.includes('→') ? res.text.split('→').length : 2);
           return `אורך חפיפה: ${res.length} • מילים: ${wc}`;
         }
+
         return `${res.length} אותיות`;
       };
 
@@ -626,7 +755,10 @@
                 React.createElement(SlidersHorizontal, { size: 20, className: 'text-amber-700' }),
                 React.createElement('span', { className: 'font-bold text-sm' }, `אורך מינימלי להצגה: ${minLength}`),
                 React.createElement('input', {
-                  type: 'range', min: 3, max: 15, value: minLength,
+                  type: 'range',
+                  min: 3,
+                  max: 15,
+                  value: minLength,
                   onChange: (e) => setMinLength(parseInt(e.target.value)),
                   className: 'w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600',
                   disabled: isSearching
@@ -656,16 +788,23 @@
 
             mode === 'long' && React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-3 items-end' },
               React.createElement('div', null,
-                React.createElement('div', { className: 'font-bold text-sm text-stone-700 mb-1' }, `אורך מינימלי לתיבה ארוכה: ${longMinLength}`),
+                React.createElement('div', { className: 'font-bold text-sm text-stone-700 mb-1' },
+                  `אורך מינימלי לתיבה ארוכה: ${longMinLength}`
+                ),
                 React.createElement('input', {
-                  type: 'range', min: 4, max: 20, value: longMinLength,
+                  type: 'range',
+                  min: 4,
+                  max: 20,
+                  value: longMinLength,
                   onChange: (e) => setLongMinLength(parseInt(e.target.value)),
                   className: 'w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600',
                   disabled: isSearching
                 })
               ),
               React.createElement('div', null,
-                React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'כמה תוצאות להציג (1=הארוכה ביותר)'),
+                React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' },
+                  'כמה תוצאות להציג (1=הארוכה ביותר)'
+                ),
                 React.createElement('input', {
                   type: 'number',
                   className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm',
@@ -678,41 +817,50 @@
               )
             ),
 
-            mode === 'letterCount' && React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-3 items-end' },
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'אות לחיפוש'),
-                React.createElement('input', {
-                  className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm text-center',
-                  value: letterToCount,
-                  maxLength: 2,
-                  onChange: (e) => setLetterToCount(e.target.value),
-                  disabled: isSearching
-                })
-              ),
-              (countMode !== 'none') && React.createElement('div', null,
-                React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'כמה פעמים בפסוק'),
-                React.createElement('input', {
-                  type: 'number',
-                  className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm',
-                  value: targetCount,
-                  min: 0,
-                  onChange: (e) => setTargetCount(parseInt(e.target.value || '0', 10)),
-                  disabled: isSearching
-                })
-              ),
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'סוג תנאי'),
-                React.createElement('select', {
-                  className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm',
-                  value: countMode,
-                  onChange: (e) => setCountMode(e.target.value),
-                  disabled: isSearching
-                },
-                  React.createElement('option', { value: 'exact' }, 'בדיוק'),
-                  React.createElement('option', { value: 'atLeast' }, 'לפחות'),
-                  React.createElement('option', { value: 'atMost' }, 'לכל היותר'),
-                  React.createElement('option', { value: 'none' }, 'אין אות בכלל')
+            mode === 'letterCount' && React.createElement(React.Fragment, null,
+              React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-3 items-end' },
+                React.createElement('div', null,
+                  React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'אות לחיפוש'),
+                  React.createElement('input', {
+                    className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm text-center',
+                    value: letterToCount,
+                    maxLength: 2,
+                    onChange: (e) => setLetterToCount(e.target.value),
+                    disabled: isSearching
+                  })
+                ),
+                (countMode !== 'none') && React.createElement('div', null,
+                  React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'כמה פעמים בפסוק'),
+                  React.createElement('input', {
+                    type: 'number',
+                    className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm',
+                    value: targetCount,
+                    min: 0,
+                    onChange: (e) => setTargetCount(parseInt(e.target.value || '0', 10)),
+                    disabled: isSearching
+                  })
+                ),
+                React.createElement('div', null,
+                  React.createElement('div', { className: 'text-sm font-bold text-stone-700 mb-1' }, 'סוג תנאי'),
+                  React.createElement('select', {
+                    className: 'w-full p-2 border rounded-lg bg-white shadow-sm text-sm',
+                    value: countMode,
+                    onChange: (e) => setCountMode(e.target.value),
+                    disabled: isSearching
+                  },
+                    React.createElement('option', { value: 'exact' }, 'בדיוק'),
+                    React.createElement('option', { value: 'atLeast' }, 'לפחות'),
+                    React.createElement('option', { value: 'atMost' }, 'לכל היותר'),
+                    React.createElement('option', { value: 'none' }, 'אין אות בכלל')
+                  )
                 )
+              ),
+              React.createElement('div', { className: 'flex flex-wrap gap-3 items-center' },
+                React.createElement('button', {
+                  onClick: handleAnalyzeAlphabet,
+                  disabled: isSearching,
+                  className: 'px-4 py-2 rounded-lg font-bold bg-teal-700 hover:bg-teal-800 text-white disabled:bg-teal-300'
+                }, 'הרץ על א–ת')
               )
             ),
 
@@ -742,14 +890,15 @@
                 )
               ),
               React.createElement('div', { className: 'text-xs text-stone-500 leading-relaxed' },
-                'ממוין: חפיפה (K) גדול→קטן, ואז מספר מילים גדול→קטן.'
+                'ממוין: קודם מספר מילים בשרשרת, אחר כך חפיפה (K).'
               )
             ),
 
             React.createElement('button', {
               onClick: handleAnalyze,
               disabled: isSearching,
-              className: 'w-full md:w-64 self-center py-3 rounded-lg font-bold transition-all shadow-md flex items-center justify-center gap-2 ' +
+              className:
+                'w-full md:w-64 self-center py-3 rounded-lg font-bold transition-all shadow-md flex items-center justify-center gap-2 ' +
                 (isSearching ? 'bg-amber-400 cursor-not-allowed text-white' : 'bg-amber-700 hover:bg-amber-800 text-white')
             },
               isSearching
@@ -762,7 +911,9 @@
           )
         ),
 
-        (filteredResults.length === 0 && results.length === 0) && React.createElement('div', { className: 'text-center text-stone-500 text-sm flex items-center justify-center gap-2' },
+        (filteredResults.length === 0 && results.length === 0) && React.createElement('div', {
+          className: 'text-center text-stone-500 text-sm flex items-center justify-center gap-2'
+        },
           React.createElement(AlertCircle, { size: 16 }),
           emptyHint()
         ),
@@ -818,7 +969,10 @@
               React.createElement(Save, { size: 20 }),
               'רשימת שמורים'
             ),
-            React.createElement('button', { onClick: exportCsv, className: 'text-xs bg-white/10 px-3 py-1.5 rounded-lg' }, 'ייצוא CSV')
+            React.createElement('button', {
+              onClick: exportCsv,
+              className: 'text-xs bg-white/10 px-3 py-1.5 rounded-lg'
+            }, 'ייצוא CSV')
           ),
 
           React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' },
@@ -845,6 +999,3 @@
   </script>
 </body>
 </html>
-
-
-
